@@ -1,7 +1,11 @@
 # AGENTS.md
 
-## Requirements
-- Read requirements in `docs/requirements.md` and indicate when the requests are drifting. 
+## Requirements
+- Read requirements in `docs/requirements.md` and indicate when the requests are drifting.
+
+## Git Commits
+- **Never automatically commit changes** unless explicitly requested by the user.
+- Wait for user approval before running `git commit`.
 
 ## Build Commands
 
