@@ -1,14 +1,8 @@
 # bury-it
 
-> **Note**: Yes, I could script this. No, it doesn't have to be Golang. Yes, this is a vibe coding experiment.
-
 A CLI tool to sunset experimental projects by archiving them into a local "graveyard" repository while preserving their git history.
 
-## Features
-
-- Preserve full git history (or optionally drop it)
-- Creates metadata file for each buried project
-- Works on macOS, Linux, and Windows
+Yes, I could script this. No, it doesn't have to be Golang. Yes, this is a vibe coding experiment.
 
 ## Installation
 
