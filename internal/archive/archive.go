@@ -98,12 +98,9 @@ func Archive(opts Options) (*Result, error) {
 	historyPreserved := !opts.DropHistory
 
 	if opts.DropHistory {
-		// Copy files without history
-		fmt.Printf("Copying files (without history) to %s...\n", projectName)
-		if err := os.MkdirAll(projectPath, 0755); err != nil {
-			return nil, fmt.Errorf("failed to create project directory: %w", err)
-		}
-		if err := git.CopyFiles(localSourcePath, projectPath); err != nil {
+		// Copy only tracked files (respects .gitignore)
+		fmt.Printf("Copying tracked files (without history) to %s...\n", projectName)
+		if err := git.CopyTrackedFiles(localSourcePath, projectPath); err != nil {
 			return nil, fmt.Errorf("failed to copy files: %w", err)
 		}
 	} else {
@@ -135,6 +132,13 @@ func Archive(opts Options) (*Result, error) {
 		if err := git.StageFile(gy.Path, metaPath); err != nil {
 			return nil, fmt.Errorf("failed to stage metadata: %w", err)
 		}
+	}
+
+	// Auto-commit the archived project
+	commitMsg := fmt.Sprintf("docs: bury-it - archived %s", projectName)
+	fmt.Printf("Committing to graveyard...\n")
+	if err := git.Commit(gy.Path, commitMsg); err != nil {
+		return nil, fmt.Errorf("failed to commit: %w", err)
 	}
 
 	return &Result{

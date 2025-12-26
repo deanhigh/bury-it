@@ -68,15 +68,12 @@ It supports both remote GitHub repositories and local git repositories as source
 			os.Exit(1)
 		}
 
-		// Success message (FR-5.4)
+		// Success message
 		fmt.Println("")
 		fmt.Printf("Successfully buried %s!\n", result.ProjectName)
+		fmt.Printf("  Archived to: %s\n", result.ProjectPath)
 		fmt.Println("")
-		fmt.Println("Next steps:")
-		fmt.Printf("  1. Review the changes in %s\n", result.ProjectPath)
-		fmt.Println("  2. Commit the graveyard repository:")
-		fmt.Printf("     cd %s && git commit -m \"Bury %s\"\n", graveyardFlag, result.ProjectName)
-		fmt.Println("  3. Archive or delete the original repository")
+		fmt.Println("Next step: Archive or delete the original repository")
 	},
 }
 

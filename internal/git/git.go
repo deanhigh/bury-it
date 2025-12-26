@@ -93,43 +93,45 @@ func SubtreeAdd(graveyardPath, sourceRepoPath, prefix string) error {
 	return nil
 }
 
-// CopyFiles copies all files from source to destination, excluding .git directory.
-func CopyFiles(sourcePath, destPath string) error {
-	return filepath.Walk(sourcePath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
+// CopyTrackedFiles copies only git-tracked files from source to destination.
+// This respects .gitignore by using git archive to export only tracked files.
+func CopyTrackedFiles(sourcePath, destPath string) error {
+	// Create destination directory
+	if err := os.MkdirAll(destPath, 0755); err != nil {
+		return fmt.Errorf("failed to create destination directory: %w", err)
+	}
 
-		// Get relative path
-		relPath, err := filepath.Rel(sourcePath, path)
-		if err != nil {
-			return err
-		}
+	// Use git archive to create a tar of tracked files, then extract
+	// This automatically respects .gitignore since only tracked files are included
+	archiveCmd := exec.Command("git", "-C", sourcePath, "archive", "--format=tar", "HEAD")
+	extractCmd := exec.Command("tar", "-xf", "-", "-C", destPath)
 
-		// Skip .git directory
-		if relPath == ".git" || strings.HasPrefix(relPath, ".git"+string(filepath.Separator)) {
-			if info.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
+	// Pipe archive output to tar extract
+	var archiveStderr, extractStderr bytes.Buffer
+	archiveCmd.Stderr = &archiveStderr
+	extractCmd.Stderr = &extractStderr
 
-		destFilePath := filepath.Join(destPath, relPath)
+	pipe, err := archiveCmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create pipe: %w", err)
+	}
+	extractCmd.Stdin = pipe
 
-		if info.IsDir() {
-			return os.MkdirAll(destFilePath, info.Mode())
-		}
+	if err := archiveCmd.Start(); err != nil {
+		return fmt.Errorf("git archive failed to start: %w", err)
+	}
+	if err := extractCmd.Start(); err != nil {
+		return fmt.Errorf("tar extract failed to start: %w", err)
+	}
 
-		// Copy file
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return fmt.Errorf("failed to read %s: %w", path, err)
-		}
-		if err := os.WriteFile(destFilePath, data, info.Mode()); err != nil {
-			return fmt.Errorf("failed to write %s: %w", destFilePath, err)
-		}
-		return nil
-	})
+	if err := archiveCmd.Wait(); err != nil {
+		return fmt.Errorf("git archive failed: %s", strings.TrimSpace(archiveStderr.String()))
+	}
+	if err := extractCmd.Wait(); err != nil {
+		return fmt.Errorf("tar extract failed: %s", strings.TrimSpace(extractStderr.String()))
+	}
+
+	return nil
 }
 
 // StageAll stages all changes in the repository.
@@ -150,6 +152,17 @@ func StageFile(repoPath, filePath string) error {
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("git add failed: %s", strings.TrimSpace(stderr.String()))
+	}
+	return nil
+}
+
+// Commit creates a commit with the given message.
+func Commit(repoPath, message string) error {
+	cmd := exec.Command("git", "-C", repoPath, "commit", "-m", message)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("git commit failed: %s", strings.TrimSpace(stderr.String()))
 	}
 	return nil
 }

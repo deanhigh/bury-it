@@ -2,6 +2,7 @@ package git
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 )
@@ -58,34 +59,52 @@ func TestIsValidRepo(t *testing.T) {
 	}
 }
 
-func TestCopyFiles(t *testing.T) {
-	// Create source directory with files
+func TestCopyTrackedFiles(t *testing.T) {
+	// Create a real git repo to test with
 	sourceDir, err := os.MkdirTemp("", "git-copy-source-*")
 	if err != nil {
 		t.Fatalf("Failed to create source dir: %v", err)
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(sourceDir) })
 
-	// Create some files
-	if err := os.WriteFile(filepath.Join(sourceDir, "file1.txt"), []byte("content1"), 0644); err != nil {
-		t.Fatalf("Failed to create file1: %v", err)
+	// Initialize git repo
+	if err := runGit(sourceDir, "init"); err != nil {
+		t.Fatalf("Failed to init git repo: %v", err)
+	}
+	if err := runGit(sourceDir, "config", "user.email", "test@test.com"); err != nil {
+		t.Fatalf("Failed to set git email: %v", err)
+	}
+	if err := runGit(sourceDir, "config", "user.name", "Test"); err != nil {
+		t.Fatalf("Failed to set git name: %v", err)
+	}
+
+	// Create tracked files
+	if err := os.WriteFile(filepath.Join(sourceDir, "tracked.txt"), []byte("tracked content"), 0644); err != nil {
+		t.Fatalf("Failed to create tracked file: %v", err)
 	}
 
 	subDir := filepath.Join(sourceDir, "subdir")
 	if err := os.MkdirAll(subDir, 0755); err != nil {
 		t.Fatalf("Failed to create subdir: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(subDir, "file2.txt"), []byte("content2"), 0644); err != nil {
-		t.Fatalf("Failed to create file2: %v", err)
+	if err := os.WriteFile(filepath.Join(subDir, "nested.txt"), []byte("nested content"), 0644); err != nil {
+		t.Fatalf("Failed to create nested file: %v", err)
 	}
 
-	// Create .git directory (should be excluded)
-	gitDir := filepath.Join(sourceDir, ".git")
-	if err := os.MkdirAll(gitDir, 0755); err != nil {
-		t.Fatalf("Failed to create .git dir: %v", err)
+	// Create .gitignore and ignored file
+	if err := os.WriteFile(filepath.Join(sourceDir, ".gitignore"), []byte("ignored.txt\n"), 0644); err != nil {
+		t.Fatalf("Failed to create .gitignore: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(gitDir, "config"), []byte("git config"), 0644); err != nil {
-		t.Fatalf("Failed to create git config: %v", err)
+	if err := os.WriteFile(filepath.Join(sourceDir, "ignored.txt"), []byte("should be ignored"), 0644); err != nil {
+		t.Fatalf("Failed to create ignored file: %v", err)
+	}
+
+	// Add and commit tracked files
+	if err := runGit(sourceDir, "add", "tracked.txt", "subdir/nested.txt", ".gitignore"); err != nil {
+		t.Fatalf("Failed to add files: %v", err)
+	}
+	if err := runGit(sourceDir, "commit", "-m", "initial commit"); err != nil {
+		t.Fatalf("Failed to commit: %v", err)
 	}
 
 	// Create destination directory
@@ -95,20 +114,21 @@ func TestCopyFiles(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(destDir) })
 
-	// Copy files
-	if err := CopyFiles(sourceDir, destDir); err != nil {
-		t.Fatalf("CopyFiles() error = %v", err)
+	// Copy tracked files
+	if err := CopyTrackedFiles(sourceDir, destDir); err != nil {
+		t.Fatalf("CopyTrackedFiles() error = %v", err)
 	}
 
-	// Verify files were copied
+	// Verify tracked files were copied, ignored files were not
 	tests := []struct {
 		path        string
 		shouldExist bool
 	}{
-		{filepath.Join(destDir, "file1.txt"), true},
-		{filepath.Join(destDir, "subdir", "file2.txt"), true},
-		{filepath.Join(destDir, ".git"), false}, // .git should be excluded
-		{filepath.Join(destDir, ".git", "config"), false},
+		{filepath.Join(destDir, "tracked.txt"), true},
+		{filepath.Join(destDir, "subdir", "nested.txt"), true},
+		{filepath.Join(destDir, ".gitignore"), true},
+		{filepath.Join(destDir, "ignored.txt"), false}, // should be excluded
+		{filepath.Join(destDir, ".git"), false},        // .git should never be copied
 	}
 
 	for _, tt := range tests {
@@ -120,11 +140,18 @@ func TestCopyFiles(t *testing.T) {
 	}
 
 	// Verify content
-	content, err := os.ReadFile(filepath.Join(destDir, "file1.txt"))
+	content, err := os.ReadFile(filepath.Join(destDir, "tracked.txt"))
 	if err != nil {
 		t.Fatalf("Failed to read copied file: %v", err)
 	}
-	if string(content) != "content1" {
-		t.Errorf("File content = %q, want %q", string(content), "content1")
+	if string(content) != "tracked content" {
+		t.Errorf("File content = %q, want %q", string(content), "tracked content")
 	}
+}
+
+// runGit is a helper to run git commands in tests.
+func runGit(dir string, args ...string) error {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	return cmd.Run()
 }
