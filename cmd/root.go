@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/deanhigh/bury-it/internal/archive"
 	"github.com/spf13/cobra"
 )
 
@@ -12,9 +13,10 @@ import (
 var Version = "dev"
 
 var (
-	source      string
-	graveyard   string
-	dropHistory bool
+	sourceFlag      string
+	graveyardFlag   string
+	nameFlag        string
+	dropHistoryFlag bool
 )
 
 var rootCmd = &cobra.Command{
@@ -30,43 +32,59 @@ It supports both remote GitHub repositories and local git repositories as source
   # Bury a local repository without preserving history
   bury-it --source ./my-experiment --graveyard ~/graveyard --drop-history
 
-  # Full GitHub URL
-  bury-it -s https://github.com/deanhigh/experiment -g /path/to/graveyard`,
+  # Full GitHub URL with custom name
+  bury-it -s https://github.com/deanhigh/experiment -g /path/to/graveyard --name my-old-experiment`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// If no flags provided, show help
-		if source == "" && graveyard == "" {
-			cmd.Help()
+		// If no flags provided, show help (FR-5.1)
+		if sourceFlag == "" && graveyardFlag == "" {
+			_ = cmd.Help()
 			return
 		}
 
-		// Validate required flags
-		if source == "" {
+		// Validate required flags (FR-5.3)
+		if sourceFlag == "" {
 			fmt.Fprintln(os.Stderr, "Error: --source is required")
 			fmt.Fprintln(os.Stderr, "")
-			cmd.Help()
+			_ = cmd.Help()
 			os.Exit(1)
 		}
 
-		if graveyard == "" {
+		if graveyardFlag == "" {
 			fmt.Fprintln(os.Stderr, "Error: --graveyard is required")
 			fmt.Fprintln(os.Stderr, "")
-			cmd.Help()
+			_ = cmd.Help()
 			os.Exit(1)
 		}
 
-		// TODO: Implement archive logic
-		fmt.Printf("Source: %s\n", source)
-		fmt.Printf("Graveyard: %s\n", graveyard)
-		fmt.Printf("Drop history: %v\n", dropHistory)
+		// Execute archive
+		result, err := archive.Archive(archive.Options{
+			Source:      sourceFlag,
+			Graveyard:   graveyardFlag,
+			Name:        nameFlag,
+			DropHistory: dropHistoryFlag,
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+
+		// Success message (FR-5.4)
 		fmt.Println("")
-		fmt.Println("Archive logic not yet implemented.")
+		fmt.Printf("Successfully buried %s!\n", result.ProjectName)
+		fmt.Println("")
+		fmt.Println("Next steps:")
+		fmt.Printf("  1. Review the changes in %s\n", result.ProjectPath)
+		fmt.Println("  2. Commit the graveyard repository:")
+		fmt.Printf("     cd %s && git commit -m \"Bury %s\"\n", graveyardFlag, result.ProjectName)
+		fmt.Println("  3. Archive or delete the original repository")
 	},
 }
 
 func init() {
-	rootCmd.Flags().StringVarP(&source, "source", "s", "", "source repository (GitHub URL, owner/repo, or local path)")
-	rootCmd.Flags().StringVarP(&graveyard, "graveyard", "g", "", "local path to the graveyard repository")
-	rootCmd.Flags().BoolVar(&dropHistory, "drop-history", false, "archive only the latest state, discard git history")
+	rootCmd.Flags().StringVarP(&sourceFlag, "source", "s", "", "source repository (GitHub URL, owner/repo, or local path)")
+	rootCmd.Flags().StringVarP(&graveyardFlag, "graveyard", "g", "", "local path to the graveyard repository")
+	rootCmd.Flags().StringVarP(&nameFlag, "name", "n", "", "override the project name in the graveyard")
+	rootCmd.Flags().BoolVar(&dropHistoryFlag, "drop-history", false, "archive only the latest state, discard git history")
 
 	rootCmd.Version = Version
 	rootCmd.SetVersionTemplate("bury-it version {{.Version}}\n")
