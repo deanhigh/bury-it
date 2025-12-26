@@ -23,6 +23,7 @@ A CLI tool to sunset experimental projects by archiving them into a local "grave
 
 - **FR-3.1**: By default, preserve full git history when archiving
 - **FR-3.2**: Support `--drop-history` flag to archive only latest state
+- **FR-3.3**: Respect `.gitignore` - do not archive ignored files
 
 ### FR-4: Metadata
 
@@ -36,7 +37,7 @@ A CLI tool to sunset experimental projects by archiving them into a local "grave
 - **FR-5.1**: Display help when invoked with no arguments
 - **FR-5.2**: Display help with `--help` or `-h` flag
 - **FR-5.3**: Provide clear error messages for invalid inputs
-- **FR-5.4**: On success, remind user to commit graveyard and archive original
+- **FR-5.4**: Automatically commit the archived project with message: `docs: bury-it - archived <project-name>`
 
 ## Non-Functional Requirements
 
