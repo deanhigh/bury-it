@@ -4,7 +4,6 @@ A CLI tool to sunset experimental projects by archiving them into a local "grave
 
 ## Features
 
-- Archive GitHub repositories or local git repos to a graveyard
 - Preserve full git history (or optionally drop it)
 - Creates metadata file for each buried project
 - Works on macOS, Linux, and Windows
@@ -32,7 +31,7 @@ make build
 bury-it --help
 
 # Bury a GitHub repository
-bury-it --source deanhigh/old-project --graveyard ~/graveyard
+bury-it --source {user}/old-project --graveyard ~/graveyard
 
 # Bury a local repository
 bury-it --source ./my-experiment --graveyard ~/graveyard
